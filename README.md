@@ -22,19 +22,13 @@ Activate your new python environment within the `backend` folder:
 Within the `backend` folder, run the following command to install the requirements:  
 `pip install -r requirements.txt`
 
-## Generate new database file
-
-within `backend` folder, run:  
-`python db.py`
-
-This will create the db for your todo items.
-
 ## Running the Backend Server
 
 Open a terminal session and run the following command within the `backend` folder:  
 `uvicorn main:app --reload`
 
-Your backend server should now be running on `http://127.0.0.1:8000`
+Your backend server should now be running on `http://127.0.0.1:8000`  
+A database will automatically be generated if one is not available
 
 ## Running the Frontend Server
 
