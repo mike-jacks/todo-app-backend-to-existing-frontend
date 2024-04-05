@@ -1,10 +1,12 @@
+from uuid import uuid4 as create_uuid
+from uuid import UUID
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
-from db import engine
+from db import engine, create_db_and_tables
 from models import Todo
 
-from models import Todo, GetTodosResponse, PostTodosResponse, PutTodosResponse, DeleteTodosResponse, UpdateTodoRequest
+from models import Todo, CreateTodoRequest, GetTodosResponse, PostTodosResponse, PutTodosResponse, DeleteTodosResponse, UpdateTodoRequest
 
 app = FastAPI()
 
@@ -25,6 +27,12 @@ TODOS = [
     Todo(id=2, item="Taxes!")
 ]
 
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
+    
+    
+
 @app.get("/todo")
 async def get_todos() -> GetTodosResponse:
     with Session(engine) as session:
@@ -32,31 +40,33 @@ async def get_todos() -> GetTodosResponse:
     return GetTodosResponse(data=todos)
 
 @app.post("/todo")
-async def add_todo(todo: Todo) -> PostTodosResponse:
+async def add_todo(todo_request: CreateTodoRequest) -> PostTodosResponse:
     with Session(engine) as session:
+        todo = Todo(id=create_uuid(), **todo_request.model_dump())
         session.add(todo)
         session.commit()
         session.refresh(todo)
     return PostTodosResponse(data=todo, description=f"{todo.item} has been added.")
 
 @app.put("/todo/{id}")
-async def update_todo(id: int, updated_todo: UpdateTodoRequest) -> PutTodosResponse:
+async def update_todo(id: UUID, updated_todo: UpdateTodoRequest) -> PutTodosResponse:
     with Session(engine) as session:
         todo = session.exec(select(Todo).where(Todo.id == id)).first()
         if todo is None:
-            raise HTTPException(status=404, detail=f"ID {id} not found.")
-        todo.item = updated_todo.item
-        session.add(todo)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"ID {id} not found.")
+        for attr, value in updated_todo.model_dump().items():
+            if hasattr(todo, attr):
+                setattr(todo, attr, value)
         session.commit()
         session.refresh(todo)
         return PutTodosResponse(data=todo, description=f"{todo.item} has been updated.")
 
 @app.delete("/todo/{id}")
-async def delete_todo(id: int) -> DeleteTodosResponse:
+async def delete_todo(id: UUID) -> DeleteTodosResponse:
     with Session(engine) as session:
         todo = session.exec(select(Todo).where(Todo.id == id)).first()
         if todo is None:
-            raise HTTPException(status=404, detail=f"ID {id} not found.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"ID {id} not found.")
         item_name = todo.item
         session.delete(todo)
         session.commit()
